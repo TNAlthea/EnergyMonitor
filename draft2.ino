@@ -36,7 +36,7 @@ int value = 0;
 PZEM004Tv30 pzem(PZEM_SERIAL, PZEM_RX_PIN, PZEM_TX_PIN);
 float voltage, current, energy, frequency, pf;
 float power = 0;
-float powerLimit = 10;
+float powerLimit = 30;
 
 int lcdColumns = 16;
 int lcdRows = 2;
