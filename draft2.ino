@@ -346,6 +346,13 @@ void callback(char *topic, byte *payload, unsigned int length) {
         float receivedPowerValue = doc["power_limit"].as<float>();
         if (receivedPowerValue != 0) {
           powerLimit = receivedPowerValue;
+          StaticJsonDocument<64> doc;
+          doc["reset"] = "reset";
+
+          // Serialize JSON to a string
+          char buffer[32];
+          serializeJson(doc, buffer);
+          client.publish(mqttPowerLimitTopic, buffer, false);
         }
       }
       // turn all relays back on, reset power to 0 making the loop() first condition running again
