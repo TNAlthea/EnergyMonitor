@@ -122,17 +122,15 @@ void overloadAlert() {
   relayStatus();
 
   // JSON object
-  StaticJsonDocument<200> doc;
+  StaticJsonDocument<64> doc;
   doc["status"] = "overload";
-  
+
   // Serialize JSON to a string
-  char buffer[256];
+  char buffer[64];
   serializeJson(doc, buffer);
-  // Serialize JSON to a string
-  size_t n = serializeJson(doc, buffer, sizeof(buffer));
 
   // Publish the serialized JSON string
-  client.publish(mqttPowerLimitTopic, (const uint8_t *)buffer, n, false);
+  client.publish(mqttPowerLimitTopic, buffer, false);
 }
 
 void clearRetainedMessages() {
@@ -200,6 +198,15 @@ void mqttConfig() {
 void deviceStatus() {
   char payload[10] = "active";
   client.publish(mqttDeviceStatusTopic, payload, false);
+
+  StaticJsonDocument<64> doc;
+  doc["status"] = "normal";
+
+  // Serialize JSON to a string
+  char buffer[32];
+  serializeJson(doc, buffer);
+
+  client.publish(mqttPowerLimitTopic, buffer, false);
 }
 
 void relayStatus() {
@@ -211,7 +218,6 @@ void relayStatus() {
   // Serialize JSON to a string
   char buffer[64];
   serializeJson(doc, buffer);
-  size_t n = serializeJson(doc, buffer);
 
   client.publish(mqttRelayTopic, buffer, false);
 }
@@ -343,13 +349,17 @@ void callback(char *topic, byte *payload, unsigned int length) {
         }
       }
       // turn all relays back on, reset power to 0 making the loop() first condition running again
-      else if (strcmp(doc["reset"], "reset") == 0){
-        lcd.clear();
-        relay1_on = true;
-        relay2_on = true;
-        relayStatus();
+      else if (doc["reset"]) {
+        if (strcmp(doc["reset"], "reset") == 0) {
+          lcd.clear();
+          relay1_on = true;
+          relay2_on = true;
+          relayStatus();
 
-        power = 0;
+          power = 0;
+
+          Serial.println("reset");
+        }
       }
     }
   } else {
