@@ -15,28 +15,28 @@ const requestData = {
   month: dateNow.getMonth() + 1
 }
 
-const currentUsage = ref()
+const powerUsage = ref()
 
-const getCurrentData = async () => {
+const getPowerData = async () => {
   try {
     // Construct the URL with the parameter
-    const baseUrl = import.meta.env.VITE_GET_TOTAL_CURRENT_DATA_MONTH
+    const baseUrl = import.meta.env.VITE_GET_TOTAL_POWER_DATA_MONTH
     const url = baseUrl.replace(':month', requestData.month)
     // DATA FOR CURRENT MONTH
     const response = await axios.get(url)
 
-    currentUsage.value = response.data.data
+    powerUsage.value = response.data.data
   } catch (error) {
     console.error(error)
   }
 }
 
-const formatTotalCurrent = computed(() => {
-  return Number(currentUsage.value[0].total_current).toFixed(2) + ' A'
+const formatTotalPower = computed(() => {
+  return Number(powerUsage.value[0].total_power).toFixed(2) + ' W'
 })
 
 onMounted(() => {
-  getCurrentData()
+  getPowerData()
 })
 </script>
 
@@ -45,12 +45,12 @@ onMounted(() => {
     <div class="flex flex-col gap-2">
       <p class="text">Total Penggunan Arus Bulan Ini</p>
       <div class="rounded w-full bg-teal-50 p-5">
-        <p v-if="currentUsage" class="text-2xl">{{ formatTotalCurrent }}</p>
+        <p v-if="powerUsage" class="text-2xl">{{ formatTotalPower }}</p>
         <p v-else>Sorry, data can't be fetched right now. Please try again later.</p>
       </div>
     </div>
     <div class="absolute right-2.5 top-2.5">
-      <div class="flex flex-row gap-1 justify-center items-center group" @click="getCurrentData">
+      <div class="flex flex-row gap-1 justify-center items-center group" @click="getPowerData">
         <ArrowPathIcon
           class="w-5 h-5 text-black group-hover:text-gray-700 group-hover:cursor-pointer"
         />
