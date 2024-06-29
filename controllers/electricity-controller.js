@@ -324,6 +324,104 @@ const getTotalCurrentConsumptionPerMonth = (req, res) => {
   });
 };
 
+const getTotalPowerConsumptionPerMonth = (req, res) => {
+  pool.getConnection(function (err, connection) {
+    if (err) {
+      res.status(500).send({
+        code: 500,
+        success: false,
+        message: "Failed to get database connection!",
+        error: err,
+      });
+      return;
+    }
+
+    if (
+      !req.params ||
+      req.params.month === undefined ||
+      req.params.month === null ||
+      req.params.month === "" ||
+      req.params.month === 0
+    ) {
+      res.status(422).send({
+        code: 422,
+        success: false,
+        message: "Missing required parameter!",
+        data: { body: req.body },
+      });
+
+      return;
+    }
+
+    const query = `
+    SELECT SUM(power) as total_power, MONTH(created_at) as month 
+    FROM electricity_monitor 
+    WHERE MONTH(created_at) = ?
+  `;
+
+    connection.query(query, [req.params.month], function (error, results) {
+      if (error) {
+        res.status(500).send({
+          code: 500,
+          success: false,
+          message: "Query execution failed!",
+          error: error,
+        });
+        return;
+      }
+      res.status(200).send({
+        code: 200,
+        success: true,
+        message: "Berhasil ambil data!",
+        data: results,
+      });
+    });
+    connection.release();
+  });
+};
+
+const getDailyPowerConsumptionPerMonth = (req, res) => {
+  let month = req.params.month;
+  pool.getConnection(function (err, connection) {
+    if (err) {
+      res.status(500).send({
+        code: 500,
+        success: false,
+        message: "Failed to get database connection!",
+        error: err,
+      });
+      return;
+    }
+    connection.query(
+      `
+      SELECT DATE(created_at) as date, SUM(power) as total_power
+      FROM electricity_monitor
+      WHERE MONTH(created_at) = ?
+      GROUP BY DATE(created_at);
+      `,
+      [month],
+      function (error, results) {
+        if (error) {
+          res.status(500).send({
+            code: 500,
+            success: false,
+            message: "Failed to fetch data!",
+            error: error,
+          });
+          return;
+        }
+        res.status(200).send({
+          code: 200,
+          success: true,
+          message: "Successfully fetched data!",
+          data: results,
+        });
+      }
+    );
+    connection.release();
+  });
+};
+
 module.exports = {
   validate,
   electricity: {
@@ -333,6 +431,8 @@ module.exports = {
     getElectricityDataByMonth,
     getTotalEnergyConsumption,
     getTotalPowerConsumption,
+    getTotalPowerConsumptionPerMonth,
+    getDailyPowerConsumptionPerMonth,
     getTotalCurrentConsumption,
     getTotalCurrentConsumptionPerMonth,
   },
