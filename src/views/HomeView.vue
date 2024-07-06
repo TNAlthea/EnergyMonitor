@@ -71,14 +71,6 @@ const handleMqttMessage = (topic: string, message: Buffer) => {
   }
 }
 
-const storeElectricalData = async (data: ElectricalData) => {
-  try {
-    const response = await axios.post(import.meta.env.VITE_STORE_ELECTRICITY_DATA, data)
-  } catch (error) {
-    console.error(error)
-  }
-}
-
 const handleElectricalDataMessage = (topic: string, message: Buffer) => {
   try {
     const deviceId = extractDeviceId(topic)
@@ -97,9 +89,6 @@ const handleElectricalDataMessage = (topic: string, message: Buffer) => {
     lastUpdate.value[deviceId] = {
       timestamp: new Date()
     }
-
-    // Store electrical data
-    storeElectricalData({ ...electricalData.value[deviceId] })
 
     // Calculate total electrical data
     callCalculateTotalElectricalData()
