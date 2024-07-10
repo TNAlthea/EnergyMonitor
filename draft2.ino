@@ -29,6 +29,7 @@ const char *mqtt_password = "thesis";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
+
 long lastMsg = 0;
 char msg[50];
 int value = 0;
@@ -36,7 +37,8 @@ int value = 0;
 PZEM004Tv30 pzem(PZEM_SERIAL, PZEM_RX_PIN, PZEM_TX_PIN);
 float voltage, current, energy, frequency, pf;
 float power = 0;
-float powerLimit = 30;
+float powerLimit = 400;
+bool overload;
 
 int lcdColumns = 16;
 int lcdRows = 2;
@@ -65,6 +67,7 @@ unsigned long startMillis;
 unsigned long currentMillis;
 void setup() {
   startMillis = millis();
+  overload = false;
 
   //configure lcd
   lcd.init();
@@ -95,17 +98,35 @@ void loop() {
 
   currentMillis = millis();
   if (currentMillis - startMillis >= 5000) {
-    if (power <= powerLimit) {
-      pzemFunction();
-      deviceStatus();
-    } else {
-      overloadAlert();
+    if (!client.connected()) {
+      mqttConfig();
     }
+
+    if (overload == false) {
+      pzemFunction();
+    }
+
+    if (isnan(power)) {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("PZEM");
+      lcd.setCursor(0, 1);
+      lcd.print("ERROR");
+      Serial.println(overload);
+    } else if ((power > powerLimit) && (!isnan(power))) {
+      overloadAlert();
+    } else {
+      pzemLcdPrint();
+      deviceStatus();
+    }
+
     startMillis = currentMillis;
   }
 }
 
 void overloadAlert() {
+  overload = true;
+
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Power");
@@ -195,6 +216,15 @@ void mqttConfig() {
   mqttConnected = true;
 }
 
+boolean mqttReconnect() {
+  String client_id = "esp32-client-";
+  client_id += String(WiFi.macAddress());
+  if (client.connect(client_id.c_str(), mqtt_username, mqtt_password)) {
+    Serial.println("MQTT RECONNECTED");
+  }
+  return client.connected();
+}
+
 void deviceStatus() {
   char payload[10] = "active";
   client.publish(mqttDeviceStatusTopic, payload, false);
@@ -228,12 +258,12 @@ void relayFunction() {
 }
 
 void pzemFunction() {
-  float voltage = pzem.voltage();
+  voltage = pzem.voltage();
   if (isnan(voltage)) {
     Serial.println("Error reading voltage");
   }
 
-  float current = pzem.current();
+  current = pzem.current();
   if (isnan(current)) {
     Serial.println("Error reading current");
   }
@@ -243,35 +273,34 @@ void pzemFunction() {
     Serial.println("Error reading power");
   }
 
-  float energy = pzem.energy();
+  energy = pzem.energy();
   if (isnan(energy)) {
     Serial.println("Error reading energy");
   }
 
-  float frequency = pzem.frequency();
+  frequency = pzem.frequency();
   if (isnan(frequency)) {
     Serial.println("Error reading frequency");
   }
 
-  float pf = pzem.pf();
+  pf = pzem.pf();
   if (isnan(pf)) {
     Serial.println("Error reading power factor");
   }
 
   if (!isnan(voltage) && !isnan(power) && !isnan(current) && !isnan(energy) && !isnan(frequency) && !isnan(pf)) {
-    pzemLcdPrint(&voltage, &current, &energy, &frequency, &pf);
     publishData(&voltage, &current, &energy, &frequency, &pf);
   }
 }
 
-void pzemLcdPrint(float *voltage, float *current, float *energy, float *frequency, float *powerFactor) {
+void pzemLcdPrint() {
   lcd.setCursor(0, 0);
   lcd.print("V:");
-  lcd.print(*voltage);
+  lcd.print(voltage);
 
   lcd.setCursor(0, 1);
   lcd.print("I:");
-  lcd.print(*current);
+  lcd.print(current);
 
   lcd.setCursor(9, 0);
   lcd.print("P:");
@@ -279,7 +308,7 @@ void pzemLcdPrint(float *voltage, float *current, float *energy, float *frequenc
 
   lcd.setCursor(9, 1);
   lcd.print("f:");
-  lcd.print(*frequency);
+  lcd.print(frequency);
 }
 
 void publishData(float *voltage, float *current, float *energy, float *frequency, float *powerFactor) {
@@ -346,7 +375,7 @@ void callback(char *topic, byte *payload, unsigned int length) {
         float receivedPowerValue = doc["power_limit"].as<float>();
         if (receivedPowerValue != 0) {
           powerLimit = receivedPowerValue;
-          StaticJsonDocument<64> doc;
+          StaticJsonDocument<32> doc;
           doc["reset"] = "reset";
 
           // Serialize JSON to a string
@@ -364,6 +393,7 @@ void callback(char *topic, byte *payload, unsigned int length) {
           relayStatus();
 
           power = 0;
+          overload = false;
 
           Serial.println("reset");
         }
