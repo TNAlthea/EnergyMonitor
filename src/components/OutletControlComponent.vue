@@ -209,7 +209,7 @@ const formattedValue = (value: number) => {
                   <div class="px-1 border-2 border-gray-500 relative overflow-hidden">
                     <p>Current:</p>
                     <p class="text-2xl">
-                      {{ formattedValue(props.electricalData[deviceId].current) }}
+                      {{ formattedValue(props.electricalData[deviceId].current) + ' Ampere' }}
                     </p>
                     <p
                       class="absolute bottom-0 right-0 translate-y-1.5 translate-x-1 font-semibold text-6xl text-gray-500 opacity-20"
@@ -220,7 +220,7 @@ const formattedValue = (value: number) => {
                   <div class="px-1 border-2 border-gray-500 relative overflow-hidden">
                     <p>Voltage:</p>
                     <p class="text-2xl">
-                      {{ formattedValue(props.electricalData[deviceId].voltage) }}
+                      {{ formattedValue(props.electricalData[deviceId].voltage) + ' Volt' }}
                     </p>
                     <p
                       class="absolute bottom-0 right-0 translate-y-1.5 translate-x-1 font-semibold text-6xl text-gray-500 opacity-20"
@@ -231,7 +231,7 @@ const formattedValue = (value: number) => {
                   <div class="px-1 border-2 border-gray-500 relative overflow-hidden">
                     <p>Power:</p>
                     <p class="text-2xl">
-                      {{ formattedValue(props.electricalData[deviceId].power) }}
+                      {{ formattedValue(props.electricalData[deviceId].power) + ' Watt' }}
                     </p>
                     <p
                       class="absolute bottom-0 right-0 translate-y-1.5 translate-x-1 font-semibold text-6xl text-gray-500 opacity-20"
@@ -242,7 +242,7 @@ const formattedValue = (value: number) => {
                   <div class="px-1 border-2 border-gray-500 relative overflow-hidden">
                     <p>Energy:</p>
                     <p class="text-2xl">
-                      {{ formattedValue(props.electricalData[deviceId].energy) }}
+                      {{ formattedValue(props.electricalData[deviceId].energy) + ' Joule' }}
                     </p>
                     <p
                       class="absolute bottom-0 right-0 translate-y-1.5 font-semibold text-6xl text-gray-500 opacity-20"
@@ -253,7 +253,7 @@ const formattedValue = (value: number) => {
                   <div class="px-1 border-2 border-gray-500 relative overflow-hidden">
                     <p class="text-sm">Power Factor:</p>
                     <p class="text-2xl">
-                      {{ formattedValue(props.electricalData[deviceId].power_factor) }}
+                      {{ formattedValue(props.electricalData[deviceId].power_factor) + ' p.f' }}
                     </p>
                     <p
                       class="absolute bottom-0 right-0 translate-y-0.5 translate-x-0.5 font-semibold text-6xl text-gray-500 opacity-20"
@@ -264,7 +264,7 @@ const formattedValue = (value: number) => {
                   <div class="px-1 border-2 border-gray-500 relative overflow-hidden">
                     <p>Frequency:</p>
                     <p class="text-2xl">
-                      {{ formattedValue(props.electricalData[deviceId].frequency) }}
+                      {{ formattedValue(props.electricalData[deviceId].frequency) + ' Hz' }}
                     </p>
                     <p
                       class="absolute bottom-0 right-0 translate-y-1.5 translate-x-1 font-semibold text-6xl text-gray-500 opacity-20"

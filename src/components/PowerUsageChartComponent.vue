@@ -1,18 +1,21 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue'
 import axios from 'axios'
-import { Bar } from 'vue-chartjs'
+import { Bar, Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
   Title,
   Tooltip,
   Legend,
   BarElement,
+  PointElement,
+  LineElement,
   CategoryScale,
   LinearScale
 } from 'chart.js'
 
-ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
+// ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend)
 
 onMounted(() => {
   getDailyPowerData(), window.addEventListener('resize', updateWindowWidth)
@@ -75,7 +78,8 @@ const getDailyPowerData = async () => {
       <p>Tren Pemakaian Listrik Bulan Ini</p>
     </div>
     <div class="bg-white rounded-lg p-5 m-5 flex justify-center">
-      <Bar v-if="loaded" :data="chartData" :style="style" />
+      <!-- <Bar v-if="loaded" :data="chartData" :style="style" /> -->
+      <Line v-if="loaded" :data="chartData" :style="style" />
       <p v-else>Fetching data...</p>
     </div>
   </div>

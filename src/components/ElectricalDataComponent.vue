@@ -71,12 +71,12 @@ const resetTotalElectricalData = () => {
 
 const adjustedTotalElectricalDataFormat = computed(() => {
   return {
-    voltage: Number(totalElectricalData.value.voltage).toFixed(2),
-    current: Number(totalElectricalData.value.current).toFixed(2),
-    power: Number(totalElectricalData.value.power).toFixed(2),
-    energy: Number(totalElectricalData.value.energy).toFixed(2),
-    frequency: Number(totalElectricalData.value.frequency).toFixed(2),
-    power_factor: Number(totalElectricalData.value.power_factor).toFixed(2)
+    voltage: Number(totalElectricalData.value.voltage).toFixed(2) + ' Volt',
+    current: Number(totalElectricalData.value.current).toFixed(2) + ' Ampere',
+    power: Number(totalElectricalData.value.power).toFixed(2) + ' Watt',
+    energy: Number(totalElectricalData.value.energy).toFixed(2) + ' Joule',
+    frequency: Number(totalElectricalData.value.frequency).toFixed(2) + ' Hz',
+    power_factor: Number(totalElectricalData.value.power_factor).toFixed(2) + ' PF'
   }
 })
 
