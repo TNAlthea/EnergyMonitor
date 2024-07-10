@@ -7,6 +7,7 @@ const app = express();
 const port = 3000;
 const mqtt = require("mqtt");
 const axios = require("axios");
+const { spawn } = require('child_process');
 
 const api = require("./configs/api.config");
 const db = require("./configs/db.config");
@@ -71,6 +72,7 @@ const handleElectricalDataMessage = async (topic, message) => {
       energy: msg.energy,
       frequency: msg.frequency,
       power_factor: msg.power_factor,
+      device_id: deviceId,
     };
 
     // Store electrical data
@@ -78,6 +80,34 @@ const handleElectricalDataMessage = async (topic, message) => {
       api.API_STORE_ELECTRICITY_DATA,
       electricalData
     );
+
+    // call the anomaly detection script
+    if (electricalData.power > 0.5){
+      energyIDS_script(electricalData, deviceId);
+    } else {
+      console.log("Power is zero. Skipping anomaly detection");
+    }
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+const energyIDS_script = (electricalData, deviceId) => {
+  try {
+    // Call the Python script for anomaly detection
+    const pythonProcess = spawn("python", ["../ids_models/Energy_IDS_Predict.py"]);
+    pythonProcess.stdin.write(
+      JSON.stringify({ data: electricalData, device_id: deviceId })
+    );
+    pythonProcess.stdin.end();
+  
+    pythonProcess.stdout.on("data", (data) => {
+      console.log(`Python output: ${data}`);
+    });
+  
+    pythonProcess.stderr.on("data", (data) => {
+      console.error(`Python error: ${data}`);
+    });
   } catch (error) {
     console.error(error);
   }
