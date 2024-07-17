@@ -77,7 +77,7 @@ const getDailyPowerData = async () => {
     <div class="px-5 pt-5">
       <p>Tren Pemakaian Listrik Bulan Ini</p>
     </div>
-    <div class="bg-white rounded-lg p-5 m-5 flex justify-center">
+    <div class="bg-white rounded-lg p-5 m-5 h-[400px] flex justify-center">
       <!-- <Bar v-if="loaded" :data="chartData" :style="style" /> -->
       <Line v-if="loaded" :data="chartData" :style="style" />
       <p v-else>Fetching data...</p>

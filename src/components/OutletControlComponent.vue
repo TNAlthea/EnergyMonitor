@@ -112,6 +112,19 @@ const askRelayStatus = async (clientID: string) => {
   }
 }
 
+const resetOverload = (deviceId: string) => {
+  try {
+    if (props.client) {
+      const message = {
+        reset: 'reset'
+      }
+      props.client.publish(`2024/2005021/esp32/config/power/${deviceId}`, JSON.stringify(message))
+    }
+  } catch (error) {
+    console.error(error)
+  }
+}
+
 const toggleRelay = (deviceId: string, relay: string, currentStatus: string) => {
   const otherRelay = relay === 'relay_1' ? 'relay_2' : 'relay_1'
   try {
@@ -165,7 +178,7 @@ const formattedValue = (value: number) => {
                   <div class="flex flex-row gap-5">
                     <p>Relay 1: {{ relayStatuses[deviceId].relay_1 }}</p>
                     <button
-                      class="hover:text-blue-500"
+                      class="text-blue-800 hover:text-blue-500"
                       @click="toggleRelay(deviceId, 'relay_1', relayStatuses[deviceId].relay_1)"
                     >
                       Toggle Relay 1
@@ -173,17 +186,28 @@ const formattedValue = (value: number) => {
                   </div>
 
                   <div class="flex flex-row gap-5">
-                    <p>Relay 2: {{ relayStatuses[deviceId].relay_2 }}</p>
+                    <p class="">Relay 2: {{ relayStatuses[deviceId].relay_2 }}</p>
                     <button
-                      class="hover:text-blue-500"
+                      class="text-blue-800 hover:text-blue-500"
                       @click="toggleRelay(deviceId, 'relay_2', relayStatuses[deviceId].relay_2)"
                     >
                       Toggle Relay 2
                     </button>
                   </div>
-                  <span>
-                    <p>Last Update: {{ deviceStatus.lastUpdate }}</p>
-                  </span>
+                  <div class="flex flex-row gap-5 pt-3">
+                    <div
+                      v-if="powerStatus.power.status === 'overload'"
+                      class="py-1 px-2 bg-red-500"
+                    >
+                      <p class="text-xl font-bold text-white">OVERLOAD</p>
+                    </div>
+                    <button
+                      class="bg-blue-500 text-white py-1 px-2"
+                      @click="resetOverload(deviceId)"
+                    >
+                      Restart Device
+                    </button>
+                  </div>
                   <div class="my-3 p-3 bg-teal-100 rounded">
                     <div>
                       <label>Power Limit</label>
@@ -200,9 +224,6 @@ const formattedValue = (value: number) => {
                         </button>
                       </div>
                     </div>
-                  </div>
-                  <div v-if="powerStatus.power.status === 'overload'" class="my-3 p-3 bg-red-500">
-                    <p class="text-xl font-bold text-white">OVERLOAD</p>
                   </div>
                 </section>
                 <section class="grid grid-cols-3 gap-3" id="electricalData">
