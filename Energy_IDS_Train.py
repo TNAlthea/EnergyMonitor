@@ -80,8 +80,6 @@ def train_if():
         
         # Explicitly cast the 'if_label' column to string type right after prediction
         df['if_label'] = df['if_label'].astype(str)
-
-        # Now, it's safe to use np.where for conditional assignment
         df.loc[df['device_id'] == device_id, 'if_label'] = np.where(df.loc[df['device_id'] == device_id, 'if_label'] == '1.0', 'normal', 'anomaly')
 
         filename = f'if_model_{device_id.replace(":", "-")}.pkl'

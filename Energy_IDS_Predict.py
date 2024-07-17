@@ -22,6 +22,9 @@ def predict_anomalies(new_data, device_id):
     # Use Random Forest to make the final prediction
     rf_labels = rf_model.predict(X_new)
     new_data['rf_labels'] = rf_labels
+
+    # Convert feature importances to a string or a list (to fit into a single cell)
+    new_data['feature_importances'] = [list(rf_model.feature_importances_)]
     
     # Round all float columns to 2 decimal places
     float_cols = new_data.select_dtypes(include=['float64']).columns
