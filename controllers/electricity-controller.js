@@ -167,13 +167,14 @@ const addElectricityData = (req, res) => {
     connection.query(
       `INSERT INTO electricity_monitor SET ?`,
       req.body,
-      function (error) {
+      function (error, result) {
         if (error) throw error;
         res.status(200).send({
           code: 200,
           success: true,
           message: "Berhasil tambah ambil data!",
           data: req.body,
+          id: result.insertId,
         });
       }
     );

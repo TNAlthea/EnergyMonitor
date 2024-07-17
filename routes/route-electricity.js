@@ -12,4 +12,5 @@ router.get('/total/power/month/:month/get', electricity.getTotalPowerConsumption
 router.get('/total/power/daily/:month/get', electricity.getDailyPowerConsumptionPerMonth);
 router.get('/total/current/get', electricity.getTotalCurrentConsumption);
 router.get('/total/current/month/:month/get', electricity.getTotalCurrentConsumptionPerMonth);
+
 module.exports = router;

@@ -7,7 +7,7 @@ const app = express();
 const port = 3000;
 const mqtt = require("mqtt");
 const axios = require("axios");
-const { spawn } = require('child_process');
+const { spawn } = require("child_process");
 
 const api = require("./configs/api.config");
 const db = require("./configs/db.config");
@@ -29,8 +29,11 @@ client.on("message", (topic, message) => {
   handleMqttMessage(topic, message);
 });
 
-const appRoute = require("./routes/route-electricity");
-app.use("/api/electricity/", appRoute);
+const appRouteElectricity = require("./routes/route-electricity");
+const appRouteElectricityAnomaly = require("./routes/route-electricity-anomaly");
+
+app.use("/api/electricity/", appRouteElectricity);
+app.use("/api/electricity/anomaly/", appRouteElectricityAnomaly);
 
 // listen on the port
 app.listen(port, () => {
@@ -81,9 +84,11 @@ const handleElectricalDataMessage = async (topic, message) => {
       electricalData
     );
 
+    const data_id = response.data.id;
+
     // call the anomaly detection script
-    if (electricalData.power > 0.5){
-      energyIDS_script(electricalData, deviceId);
+    if (electricalData.power > 0.5) {
+      energyIDS_script(electricalData, deviceId, data_id);
     } else {
       console.log("Power is zero. Skipping anomaly detection");
     }
@@ -92,19 +97,34 @@ const handleElectricalDataMessage = async (topic, message) => {
   }
 };
 
-const energyIDS_script = (electricalData, deviceId) => {
+const energyIDS_script = (electricalData, deviceId, data_id) => {
   try {
     // Call the Python script for anomaly detection
-    const pythonProcess = spawn("python", ["../ids_models/Energy_IDS_Predict.py"]);
+    const pythonProcess = spawn("python", [
+      "../ids_models/Energy_IDS_Predict.py",
+    ]);
     pythonProcess.stdin.write(
       JSON.stringify({ data: electricalData, device_id: deviceId })
     );
     pythonProcess.stdin.end();
-  
+
     pythonProcess.stdout.on("data", (data) => {
+      const output = JSON.parse(data.toString());
       console.log(`Python output: ${data}`);
+      if_labels = output[0].if_labels == "anomaly" ? 1 : 0;
+      rf_labels = output[0].rf_labels == "anomaly" ? 1 : 0;
+      if (if_labels == 1 || rf_labels == 1) {
+        const data = {
+          data_id: data_id,
+          if_labels_anomaly: if_labels,
+          rf_labels_anomaly: rf_labels,
+        };
+
+        // Store anomaly data
+        const response = axios.post(api.API_STORE_ANOMALY_DATA, data);
+      }
     });
-  
+
     pythonProcess.stderr.on("data", (data) => {
       console.error(`Python error: ${data}`);
     });
