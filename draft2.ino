@@ -5,24 +5,26 @@
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 
+/* Serial dan PIN (RX) (TX) modul sensor listrik PZEM */
 #if !defined(PZEM_RX_PIN) && !defined(PZEM_TX_PIN)
 #define PZEM_RX_PIN 16
 #define PZEM_TX_PIN 17
-#endif
-
-#if !defined(BUZZER_PIN)
-#define BUZZER_PIN 2
 #endif
 
 #if !defined(PZEM_SERIAL)
 #define PZEM_SERIAL Serial2
 #endif
 
+/* PIN modul buzzer KY-012 */
+#if !defined(BUZZER_PIN)
+#define BUZZER_PIN 2
+#endif
+
+/* kredensial WIFI */
 const char WIFI_SSID[] = "G01";
 const char WIFI_PASSWORD[] = "12131225";
 
-String HOST_PATH = "http://192.168.1.9/energy_monitor.php";
-
+/* kredensial MQTT broker */
 const char *mqtt_server = "broker.emqx.io";
 const char *mqtt_username = "esp32";
 const char *mqtt_password = "thesis";
@@ -30,46 +32,48 @@ const char *mqtt_password = "thesis";
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-long lastMsg = 0;
-char msg[50];
-int value = 0;
-
+/* variabel PZEM */
 PZEM004Tv30 pzem(PZEM_SERIAL, PZEM_RX_PIN, PZEM_TX_PIN);
 float voltage, current, energy, frequency, pf;
 float power = 0;
 float powerLimit = 400;
 bool overload;
 
+/* variabel LCD */
 int lcdColumns = 16;
 int lcdRows = 2;
 
+/* variabel pin relay */
 const int relay1 = 32;
 const int relay2 = 33;
 
 // set LCD address, number of columns and rows
 LiquidCrystal_I2C lcd(0x27, lcdColumns, lcdRows);
 
+/* status wifi dan mqtt */
 bool wifiConnected = false;
 bool mqttConnected = false;
 
+/* status relay */
 bool relay1_on = true;
 bool relay2_on = true;
 
-bool ignoreFirstMsg = false;  //ignore first mqtt message, assume it always retained
-
+/* topic yang akan berlangganan */
 char mqttDeviceStatusTopic[64] = "2024/2005021/esp32/device_status/";
 char mqttElectricalDataTopic[64] = "2024/2005021/esp32/telemetry/";
 char mqttRelayTopic[64] = "2024/2005021/esp32/relay/";
-char mqttServerTopic[64] = "2024/2005021/esp32/server/";  //message from server
+char mqttServerTopic[64] = "2024/2005021/esp32/server/"; 
 char mqttPowerLimitTopic[64] = "2024/2005021/esp32/config/power/";
 
+/* variabel detik untuk looping */
 unsigned long startMillis;
 unsigned long currentMillis;
+
 void setup() {
   startMillis = millis();
   overload = false;
 
-  //configure lcd
+  // Konfigurasi I2C LCD
   lcd.init();
   lcd.backlight();
   Serial.begin(115200);
@@ -77,17 +81,20 @@ void setup() {
   wifiConfig();
   mqttConfig();
 
+  // Konfigurasi PIN dan modul
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(relay1, OUTPUT);
   pinMode(relay2, OUTPUT);
   relayFunction();
 
+  // Konfigurasi topic yang akan berlangganan
   strcat(mqttDeviceStatusTopic, WiFi.macAddress().c_str());
   strcat(mqttElectricalDataTopic, WiFi.macAddress().c_str());
   strcat(mqttRelayTopic, WiFi.macAddress().c_str());
   strcat(mqttServerTopic, WiFi.macAddress().c_str());
   strcat(mqttPowerLimitTopic, WiFi.macAddress().c_str());
 
+  // Berlangganan topic
   client.subscribe(mqttRelayTopic);
   client.subscribe(mqttServerTopic);
   client.subscribe(mqttPowerLimitTopic);
@@ -97,15 +104,19 @@ void loop() {
   client.loop();
 
   currentMillis = millis();
+  /* lakukan looping setiap 5 detik */
   if (currentMillis - startMillis >= 5000) {
+    /* apabila mqtt tidak terhubung */
     if (!client.connected()) {
       mqttConfig();
     }
 
+    /* apabila beban daya tidak melebihi batas */
     if (overload == false) {
       pzemFunction();
     }
 
+    /* apabila sensor mengalami malfungsi */
     if (isnan(power)) {
       lcd.clear();
       lcd.setCursor(0, 0);
@@ -113,9 +124,13 @@ void loop() {
       lcd.setCursor(0, 1);
       lcd.print("ERROR");
       Serial.println(overload);
-    } else if ((power > powerLimit) && (!isnan(power))) {
+    } 
+    /* apabila beban melebihi batas yang diperbolehkan */
+    else if ((power > powerLimit) && (!isnan(power))) {
       overloadAlert();
-    } else {
+    } 
+    /* apabila kondisi normal */
+    else {
       pzemLcdPrint();
       deviceStatus();
     }
@@ -124,6 +139,7 @@ void loop() {
   }
 }
 
+/* fungsi untuk memberi peringatan ketika beban daya melebihi batasan yang diperbolehkan */
 void overloadAlert() {
   overload = true;
 
@@ -154,11 +170,7 @@ void overloadAlert() {
   client.publish(mqttPowerLimitTopic, buffer, false);
 }
 
-void clearRetainedMessages() {
-  client.publish(mqttElectricalDataTopic, "", true);
-  client.publish(mqttRelayTopic, "", true);
-}
-
+/* konfigurasi wifi dan koneksi pertama kali */
 void wifiConfig() {
   //configure WIFI and HTTP
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -182,6 +194,7 @@ void wifiConfig() {
   lcd.clear();
 }
 
+/* konfigurasi MQTT dan koneksi pertama kali */
 void mqttConfig() {
   //Configure MQTT
   client.setServer(mqtt_server, 1883);
@@ -216,6 +229,7 @@ void mqttConfig() {
   mqttConnected = true;
 }
 
+/* menghubungkan kembali device kepada MQTT broker apabila jaringan terputus */
 boolean mqttReconnect() {
   String client_id = "esp32-client-";
   client_id += String(WiFi.macAddress());
@@ -225,13 +239,15 @@ boolean mqttReconnect() {
   return client.connected();
 }
 
+/* memberi informasi status device */
 void deviceStatus() {
+  /* heartbeat status controller */
   char payload[10] = "active";
   client.publish(mqttDeviceStatusTopic, payload, false);
 
+  /* status beban daya saat ini apakah normal/overload */
   StaticJsonDocument<64> doc;
   doc["status"] = "normal";
-
   // Serialize JSON to a string
   char buffer[32];
   serializeJson(doc, buffer);
@@ -239,6 +255,7 @@ void deviceStatus() {
   client.publish(mqttPowerLimitTopic, buffer, false);
 }
 
+/* mengatur relay dan memberi informasi status relay */
 void relayStatus() {
   // relay status
   StaticJsonDocument<64> doc;
@@ -249,6 +266,7 @@ void relayStatus() {
   char buffer[64];
   serializeJson(doc, buffer);
 
+  /* publish status relay saat ini melalui mqtt */
   client.publish(mqttRelayTopic, buffer, false);
 }
 
@@ -257,6 +275,9 @@ void relayFunction() {
   digitalWrite(relay2, relay2_on ? HIGH : LOW);
 }
 
+/*
+* Fungsi deteksi pada sensor
+*/
 void pzemFunction() {
   voltage = pzem.voltage();
   if (isnan(voltage)) {
@@ -293,6 +314,9 @@ void pzemFunction() {
   }
 }
 
+/*
+*  Menampilkan data dari sensor PZEM ke LCD 
+*/
 void pzemLcdPrint() {
   lcd.setCursor(0, 0);
   lcd.print("V:");
@@ -331,17 +355,8 @@ void publishData(float *voltage, float *current, float *energy, float *frequency
   client.publish(mqttElectricalDataTopic, (const uint8_t *)buffer, n, false);
 }
 
-
+/* callback ketika menerima pesan dari topic MQTT yang berlangganan */
 void callback(char *topic, byte *payload, unsigned int length) {
-  Serial.print("Message arrived in topic: ");
-  Serial.println(topic);
-  Serial.print("Message: ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println();
-  Serial.println("-----------------------");
-
   StaticJsonDocument<200> doc;
   // Deserialize the JSON payload
   DeserializationError error = deserializeJson(doc, payload, length);
@@ -349,9 +364,13 @@ void callback(char *topic, byte *payload, unsigned int length) {
   // Check for parsing errors
   if (!error) {
     // Compare topics using strcmp
-    /* if server want to control/toggle relay */
+    /* Apabila user ingin mengatur relay */
     if (strcmp(topic, mqttRelayTopic) == 0) {
-      // Extract relay statuses from the JSON document
+      /*
+      * Received key: "relay_n"
+      * Received value: "active" / "inactive"
+      * Description: Menyalakan atau mematikan relay
+      */
       if (doc["relay_1"]) {
         const char *relay1_status = doc["relay_1"];
         relay1_on = (strcmp(relay1_status, "active") == 0) ? true : false;
@@ -362,15 +381,25 @@ void callback(char *topic, byte *payload, unsigned int length) {
       }
       relayFunction();
     }
-    /* if server asks for relay status */
+    /* Apabila server ingin mengetahui status relay */
     else if (strcmp(topic, mqttServerTopic) == 0) {
+      /*
+      * Received key: "power_limit"
+      * Received value: "relay?"
+      * Description: Mengubah batasan (threshold) daya yang diperbolehkan
+      */
       if (strcmp(doc["message"], "relay?") == 0) {
         relayStatus();
         Serial.println("server asked relay status");
       }
     }
-    /* if server wants to change current limit */
+    /* Apabila user ingin mengubahbatasan (threshold) daya yang diperbolehkan */
     else if (strcmp(topic, mqttPowerLimitTopic) == 0) {
+      /*
+      * Received key: "power_limit"
+      * Received value: {batasan daya}
+      * Description: Mengubah batasan (threshold) daya yang diperbolehkan
+      */
       if (doc["power_limit"]) {
         float receivedPowerValue = doc["power_limit"].as<float>();
         if (receivedPowerValue != 0) {
@@ -384,7 +413,11 @@ void callback(char *topic, byte *payload, unsigned int length) {
           client.publish(mqttPowerLimitTopic, buffer, false);
         }
       }
-      // turn all relays back on, reset power to 0 making the loop() first condition running again
+      /*
+      * Received key: "reset"
+      * Received value: "reset"
+      * Description: Menyalakan semua relay, mengembalikan nilai power menjadi 0, dan membuat kondisi if pertama pada loop() berjalan kembali
+      */
       else if (doc["reset"]) {
         if (strcmp(doc["reset"], "reset") == 0) {
           lcd.clear();
