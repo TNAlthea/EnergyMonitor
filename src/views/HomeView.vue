@@ -113,8 +113,8 @@ const resetElectricalData = () => {
         power_factor: 0
       }
       callCalculateTotalElectricalData()
-      delete electricalData.value[key]
-      delete lastUpdate.value[key]
+      // delete electricalData.value[key]
+      // delete lastUpdate.value[key]
     }
   }
 }

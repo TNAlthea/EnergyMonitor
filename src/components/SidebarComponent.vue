@@ -17,17 +17,17 @@ const changeMenuMode = (item: string) => {
 const menuItems = ref([
   {
     icon: PresentationChartLineIcon,
-    text: 'dashboard',
+    text: 'Dashboard',
     handler: changeMenuMode
   },
   {
     icon: PresentationChartBarIcon,
-    text: 'monitor',
+    text: 'Monitor',
     handler: changeMenuMode
   },
   {
     icon: Cog6ToothIcon,
-    text: 'settings',
+    text: 'Settings',
     handler: changeMenuMode
   }
 ])
