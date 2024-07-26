@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import mqtt from 'mqtt'
+import { devNull } from 'os'
 
 interface ElectricalData {
   voltage: number
@@ -29,8 +30,7 @@ const props = defineProps({
 const isLoading = ref(true)
 const deviceStatuses = ref({} as Record<string, { status: string; lastUpdate: Date }>)
 const relayStatuses = ref({} as Record<string, { relay_1: string; relay_2: string }>)
-const powerLimit = ref(0)
-const powerStatus = ref({})
+const powerStatus = ref({} as Record<string, { status: string; currentPowerLimit: number }>)
 
 onMounted(() => {
   if (props.client) {
@@ -62,16 +62,21 @@ const handleMqttMessage = (topic: string, message: Buffer) => {
   }
 }
 
+const hasAskedRelayStatus = ref(false)
 const handleDeviceStatusMessage = (topic: string, message: Buffer) => {
   try {
     isLoading.value = false
-    const deviceId = extractDeviceId(topic)
+    const deviceId = extractDeviceId(topic, 4)
     deviceStatuses.value[deviceId] = {
       status: message.toString(),
       lastUpdate: new Date()
     }
 
-    askRelayStatus(deviceId)
+    if (hasAskedRelayStatus.value === false) {
+      askRelayStatus(deviceId)
+      hasAskedRelayStatus.value = true
+    }
+    // a  skRelayStatus(deviceId)
   } catch (error) {
     console.error(error)
   }
@@ -79,26 +84,46 @@ const handleDeviceStatusMessage = (topic: string, message: Buffer) => {
 
 const handleRelayMessage = (topic: string, message: Buffer) => {
   try {
-    const deviceId = extractDeviceId(topic)
+    const deviceId = extractDeviceId(topic, 4)
     relayStatuses.value[deviceId] = JSON.parse(message.toString())
   } catch (error) {
     console.error(error)
   }
 }
 
+const isPauseNewCurrentPowerLimit = ref(false) // Prevents the function from being called multiple times
+const toggleIsPauseNewCurrentPowerLimit = () => {
+  isPauseNewCurrentPowerLimit.value = !isPauseNewCurrentPowerLimit.value
+}
 const handlePowerConfigMessage = (topic: string, message: Buffer) => {
   try {
-    const deviceId = extractDeviceId(topic)
+    const deviceId = extractDeviceId(topic, 5)
 
     const powerMessage = JSON.parse(message.toString())
-    powerStatus.value[deviceId] = powerMessage
+    if (Object.keys(powerMessage).toString() === 'status') {
+      powerStatus.value[deviceId] = {
+        status: powerMessage.status,
+        currentPowerLimit: powerStatus.value[deviceId]
+          ? powerStatus.value[deviceId].currentPowerLimit
+          : 0
+      }
+    } else if (Object.keys(powerMessage).toString() === 'current_power_limit') {
+      if (isPauseNewCurrentPowerLimit.value === false) {
+        powerStatus.value[deviceId] = {
+          status: powerStatus.value[deviceId] ? powerStatus.value[deviceId].status : 'normal',
+          currentPowerLimit: powerMessage.current_power_limit
+        }
+
+        toggleIsPauseNewCurrentPowerLimit()
+      }
+    }
   } catch (error) {
     console.error(error)
   }
 }
 
-const extractDeviceId = (topic: string) => {
-  return topic.split('/')[4] // Extract device ID from topic
+const extractDeviceId = (topic: string, index: number) => {
+  return topic.split('/')[index] // Extract device ID from topic
 }
 
 const askRelayStatus = async (clientID: string) => {
@@ -142,11 +167,14 @@ const toggleRelay = (deviceId: string, relay: string, currentStatus: string) => 
 
 const setPowerLimit = (deviceId: string) => {
   try {
-    if (props.client && powerLimit.value) {
+    if (props.client && powerStatus.value[deviceId].currentPowerLimit) {
       const message = {
-        power_limit: powerLimit.value
+        power_limit: powerStatus.value[deviceId].currentPowerLimit
       }
       props.client.publish(`2024/2005021/esp32/config/power/${deviceId}`, JSON.stringify(message))
+    } else {
+      if (props.client === undefined) console.log('Client is undefined')
+      else if (powerStatus.value[deviceId].currentPowerLimit === undefined) console.log('Power Limit is undefined', powerStatus.value[deviceId].currentPowerLimit)
     }
   } catch (error) {
     console.error(error)
@@ -196,33 +224,44 @@ const formattedValue = (value: number) => {
                   </div>
                   <div class="flex flex-row gap-5 pt-3">
                     <div
-                      v-if="powerStatus.power.status === 'overload'"
+                      v-if="powerStatus[deviceId].status === 'overload'"
                       class="py-1 px-2 bg-red-500"
                     >
                       <p class="text-xl font-bold text-white">OVERLOAD</p>
                     </div>
                     <button
-                      class="bg-blue-500 text-white py-1 px-2"
+                      class="bg-blue-500 rounded-md shadow-md text-white py-1 px-2"
                       @click="resetOverload(deviceId)"
                     >
                       Restart Device
                     </button>
                   </div>
-                  <div class="my-3 p-3 bg-teal-100 rounded">
-                    <div>
-                      <label>Power Limit</label>
-                      <div class="flex flex-row items-center justify-between gap-3">
-                        <span class="flex flex-row w-32 gap-2">
-                          <input class="px-3 w-full" type="number" v-model="powerLimit" :min="0" />
-                          <p>W</p>
+                  <div
+                    class="my-3 p-3 border-2 border-gray-300 shadow-sm rounded flex flex-col gap-3 w-fit bg-white"
+                  >
+                    <p>Power Limit (watt):</p>
+                    <div class="flex flex-row gap-5">
+                      <div class="px-1 py-3 border border-gray-300 relative overflow-hidden w-fit">
+                        <span class="flex flex-row gap-2 w-24">
+                          <input
+                            class="p-3 w-full bg-transparent text-xl"
+                            type="number"
+                            v-model="powerStatus[deviceId].currentPowerLimit"
+                            :min="0"
+                          />
                         </span>
-                        <button
-                          class="bg-blue-300 hover:bg-blue-500 px-3 py-1"
-                          @click="setPowerLimit(deviceId)"
+                        <p
+                          class="absolute bottom-0 right-0 translate-y-1.5 translate-x-1 font-semibold text-6xl text-gray-500 opacity-20"
                         >
-                          <p>Set</p>
-                        </button>
+                          W
+                        </p>
                       </div>
+                      <button
+                        class="bg-blue-300 border-0 hover:bg-blue-500 px-3 py-1 cursor-pointer flex items-center justify-center"
+                        @click="setPowerLimit(deviceId)"
+                      >
+                        <p>Set</p>
+                      </button>
                     </div>
                   </div>
                 </section>

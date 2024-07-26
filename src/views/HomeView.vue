@@ -45,6 +45,8 @@ onMounted(() => {
     }
 
     intervalId = setInterval(resetElectricalData, 3000)
+
+    getAnomalyLog()
   } catch (error) {
     console.error(error)
   }
@@ -103,7 +105,6 @@ const resetElectricalData = () => {
   for (const key in electricalData.value) {
     const time = Number(lastUpdate.value[key].timestamp)
     if (now - time >= 10000) {
-      console.log('delete data for device because of inactivity: ', key)
       electricalData.value[key] = {
         current: 0,
         voltage: 0,
@@ -122,6 +123,16 @@ const resetElectricalData = () => {
 const callCalculateTotalElectricalData = () => {
   eventBus.triggerCalculateTotalElectricalData = true
 }
+
+const anomalyData = ref([])
+const getAnomalyLog = async () => {
+    try {
+        const response = await axios.get(import.meta.env.VITE_GET_ELECTRICITY_ANOMALY_DATA)   
+        anomalyData.value = response.data.data
+    } catch (error) {
+        console.error(error)
+    }
+}
 </script>
 
 <template>
@@ -135,6 +146,7 @@ const callCalculateTotalElectricalData = () => {
           :client="client"
           :electricalData="electricalData"
           :lastUpdate="lastUpdate"
+          :anomalyData="anomalyData"
           ref="routerViewRef"
         />
       </div>
