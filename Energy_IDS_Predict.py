@@ -16,15 +16,15 @@ def predict_anomalies(new_data, device_id):
     
     # Use Isolation Forest to label the data
     if_labels = if_model.predict(X_new)
-    new_data['if_labels'] = if_labels
-    new_data['if_labels'] = new_data['if_labels'].map({1: 'normal', -1: 'anomaly'})  # Map 1 to 'normal' and -1 to 'anomaly'
+    # new_data['if_labels'] = if_labels
+    # new_data['if_labels'] = new_data['if_labels'].map({1: 'normal', -1: 'anomaly'})  # Map 1 to 'normal' and -1 to 'anomaly'
     
     # Use Random Forest to make the final prediction
     rf_labels = rf_model.predict(X_new)
-    new_data['rf_labels'] = rf_labels
+    new_data['label'] = rf_labels
 
     # Convert feature importances to a string or a list (to fit into a single cell)
-    new_data['feature_importances'] = [list(rf_model.feature_importances_)]
+    # new_data['feature_importances'] = [list(rf_model.feature_importances_)]
     
     # Round all float columns to 2 decimal places
     float_cols = new_data.select_dtypes(include=['float64']).columns
