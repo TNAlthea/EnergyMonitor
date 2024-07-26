@@ -90,7 +90,7 @@ const handleElectricalDataMessage = async (topic, message) => {
     if (electricalData.power > 0.5) {
       energyIDS_script(electricalData, deviceId, data_id);
     } else {
-      console.log("Power is zero. Skipping anomaly detection");
+      // console.log("Power is zero. Skipping anomaly detection");
     }
   } catch (error) {
     console.error(error);
@@ -122,6 +122,13 @@ const energyIDS_script = (electricalData, deviceId, data_id) => {
 
         // Store anomaly data
         const response = axios.post(api.API_STORE_ANOMALY_DATA, data);
+
+        // Publish anomaly data to MQTT
+        const message = {
+          device_id: deviceId,
+          'status': 'anomaly',
+        }
+        client.publish(`2024/2005021/esp32/anomaly/${deviceId}`, JSON.stringify(message));
       }
     });
 

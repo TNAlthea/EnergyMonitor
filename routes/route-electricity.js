@@ -4,6 +4,7 @@ const router = require('express').Router();
 
 router.get('/retrieve', electricity.getElectricityData);
 router.get('/get/:id', electricity.getElectricityDataByID);
+router.get('/retrieve/device/:device_id', electricity.getElectricityDataByDeviceID);
 router.get('/get/monthly/:month', electricity.getElectricityDataByMonth);
 router.post('/add', validate("addElectricityData"), electricity.addElectricityData);
 router.get('/total/energy/get', electricity.getTotalEnergyConsumption);

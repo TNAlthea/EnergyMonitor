@@ -119,10 +119,10 @@ const addElectricityAnomalyData = async (req, res) => {
             });
           }
           // Send a success response only if there was no error
-          res.status(200).send({
-            code: 200,
+          res.status(201).send({
+            code: 201,
             success: true,
-            message: "Data inserted successfully",
+            message: "Anomaly Data Log inserted successfully",
             data: req.body,
           });
           // Make sure to release the connection after use
@@ -133,9 +133,75 @@ const addElectricityAnomalyData = async (req, res) => {
   } catch (error) {}
 };
 
+const getElectricityAnomalyData = (req, res) => {
+  pool.getConnection(function (err, connection) {
+    if (err) {
+      res.status(500).send({
+        code: 500,
+        success: false,
+        message: "Failed to get database connection!",
+        error: err,
+      });
+      return;
+    }
+    connection.query(
+      `
+      SELECT ea.*, ed.* FROM electricity_anomaly ea
+      JOIN electricity_monitor ed ON ea.data_id = ed.data_id;
+      `,
+      function (error, results) {
+        if (error) throw error;
+        res.status(200).send({
+          code: 200,
+          success: true,
+          message: "Berhasil ambil data!",
+          data: results,
+        });
+      }
+    );
+    connection.release();
+  });
+};
+
+const getElectricityAnomalyDataByDeviceId = (req, res) => {
+  let deviceId = req.params.device_id;
+  pool.getConnection(function (err, connection) {
+    if (err) {
+      res.status(500).send({
+        code: 500,
+        success: false,
+        message: "Failed to get database connection!",
+        error: err,
+      });
+      return;
+    }
+    connection.query(
+      `
+      SELECT ea.*, ed.* FROM electricity_anomaly ea
+      JOIN electricity_monitor ed ON ea.data_id = ed.data_id
+      WHERE ed.device_id = ?;
+      `,
+      [deviceId],
+      function (error, results) {
+        if (error) throw error;
+        res.status(200).send({
+          code: 200,
+          success: true,
+          message: "Berhasil ambil data!",
+          data: results,
+        });
+      }
+    );
+    connection.release();
+  });
+};
+
+
 module.exports = {
   validate,
   electricity_anomaly: {
     addElectricityAnomalyData,
+    getElectricityAnomalyData,
+    getElectricityAnomalyDataByDeviceId,
   },
 };

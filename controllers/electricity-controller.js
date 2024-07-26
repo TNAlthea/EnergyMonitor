@@ -111,6 +111,37 @@ const getElectricityDataByID = (req, res) => {
   });
 };
 
+const getElectricityDataByDeviceID = (req, res) => {
+  let deviceId = req.params.device_id;
+  pool.getConnection(function (err, connection) {
+    if (err) {
+      res.status(500).send({
+        code: 500,
+        success: false,
+        message: "Failed to get database connection!",
+        error: err,
+      });
+      return;
+    }
+    connection.query(
+      `
+      SELECT * FROM electricity_monitor WHERE device_id = ?;
+      `,
+      [deviceId],
+      function (error, results) {
+        if (error) throw error;
+        res.send({
+          code: 200,
+          success: true,
+          message: "Berhasil ambil data listrik berdasarkan device_id!",
+          data: results,
+        });
+      }
+    );
+    connection.release();
+  });
+};
+
 const getElectricityDataByMonth = (req, res) => {
   let month = req.params.month;
   pool.getConnection(function (err, connection) {
@@ -131,6 +162,7 @@ const getElectricityDataByMonth = (req, res) => {
       function (error, results) {
         if (error) throw error;
         res.send({
+          code: 200,
           success: true,
           message: "Berhasil ambil data!",
           data: results,
@@ -169,8 +201,8 @@ const addElectricityData = (req, res) => {
       req.body,
       function (error, result) {
         if (error) throw error;
-        res.status(200).send({
-          code: 200,
+        res.status(201).send({
+          code: 201,
           success: true,
           message: "Berhasil tambah ambil data!",
           data: req.body,
@@ -429,6 +461,7 @@ module.exports = {
     addElectricityData,
     getElectricityData,
     getElectricityDataByID,
+    getElectricityDataByDeviceID,
     getElectricityDataByMonth,
     getTotalEnergyConsumption,
     getTotalPowerConsumption,
