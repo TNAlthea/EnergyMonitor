@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 
 const props = defineProps({
   electricalDataLogs: {
@@ -8,8 +8,7 @@ const props = defineProps({
   }
 })
 
-onMounted(() => {
-})
+onMounted(() => {})
 
 const currentPage = ref(1)
 const pageSize = 30
@@ -20,19 +19,39 @@ const paginatedLogs = computed(() => {
   return props.electricalDataLogs.slice(startIndex, endIndex)
 })
 
+const filteredLogs = computed(() => {
+  const startIndex = (currentPage.value - 1) * pageSize
+  const endIndex = startIndex + pageSize
+  return props.electricalDataLogs
+    .filter((item) => item.rf_labels_anomaly === 1)
+    .slice(startIndex, endIndex)
+})
+
+watch(filteredLogs, (newVal) => {
+  console.log('filteredLogs length:', newVal.length)
+})
+
 const totalPages = computed(() => {
   return Math.ceil(props.electricalDataLogs.length / pageSize)
 })
 
+// const totalPages = computed(() => {
+//   return Math.ceil(props.electricalDataLogs.length / pageSize)
+// })
+
 const prevPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--
+  } else {
+    currentPage.value = totalPages.value
   }
 }
 
 const nextPage = () => {
   if (currentPage.value < totalPages.value) {
     currentPage.value++
+  } else {
+    currentPage.value = 1
   }
 }
 
@@ -82,14 +101,13 @@ const formattedAnomaly = (value: number) => {
               <th class="">Energy</th>
               <th class="">Frequency</th>
               <th class="">Power Factor</th>
-              <th class="">IF Labels</th>
-              <th class="">RF Labels</th>
+              <th class="">Behaviour</th>
               <th class="">Recorded At</th>
             </tr>
           </thead>
           <tbody class="">
             <tr
-              v-for="(item, index) in paginatedLogs"
+              v-for="(item, index) in filteredLogs"
               :key="index"
               class="border-b border-slate-300 bg-white"
             >
@@ -99,9 +117,9 @@ const formattedAnomaly = (value: number) => {
               <td class="text-center">{{ formattedValue(item.energy) }}</td>
               <td class="text-center">{{ formattedValue(item.frequency) }}</td>
               <td class="text-center">{{ formattedValue(item.power_factor) }}</td>
-              <td class="text-center" :class="formattedAnomaly(item.if_labels_anomaly).class">
+              <!-- <td class="text-center" :class="formattedAnomaly(item.if_labels_anomaly).class">
                 {{ formattedAnomaly(item.if_labels_anomaly).value }}
-              </td>
+              </td> -->
               <td class="text-center" :class="formattedAnomaly(item.rf_labels_anomaly).class">
                 {{ formattedAnomaly(item.rf_labels_anomaly).value }}
               </td>
@@ -113,18 +131,10 @@ const formattedAnomaly = (value: number) => {
     </section>
 
     <div class="flex justify-center mt-4">
-      <button
-        class="px-4 py-2 mx-2 text-white bg-blue-500 rounded-md"
-        :disabled="currentPage === 1"
-        @click="prevPage"
-      >
+      <button class="px-4 py-2 mx-2 text-white bg-blue-500 rounded-md" @click="prevPage">
         Prev
       </button>
-      <button
-        class="px-4 py-2 mx-2 text-white bg-blue-500 rounded-md"
-        :disabled="currentPage === totalPages"
-        @click="nextPage"
-      >
+      <button class="px-4 py-2 mx-2 text-white bg-blue-500 rounded-md" @click="nextPage">
         Next
       </button>
     </div>
