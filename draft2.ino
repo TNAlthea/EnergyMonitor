@@ -1,7 +1,6 @@
 #include <LiquidCrystal_I2C.h>
 #include <PZEM004Tv30.h>
 #include <WiFi.h>
-#include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 
@@ -36,7 +35,7 @@ PubSubClient client(espClient);
 PZEM004Tv30 pzem(PZEM_SERIAL, PZEM_RX_PIN, PZEM_TX_PIN);
 float voltage, current, energy, frequency, pf;
 float power = 0;
-float powerLimit = 400;
+float powerLimit = 100;
 bool overload;
 
 /* variabel LCD */
@@ -62,8 +61,9 @@ bool relay2_on = true;
 char mqttDeviceStatusTopic[64] = "2024/2005021/esp32/device_status/";
 char mqttElectricalDataTopic[64] = "2024/2005021/esp32/telemetry/";
 char mqttRelayTopic[64] = "2024/2005021/esp32/relay/";
-char mqttServerTopic[64] = "2024/2005021/esp32/server/"; 
+char mqttServerTopic[64] = "2024/2005021/esp32/server/";
 char mqttPowerLimitTopic[64] = "2024/2005021/esp32/config/power/";
+char mqttAnomalyStatusTopic[64] = "2024/2005021/esp32/anomaly/";
 
 /* variabel detik untuk looping */
 unsigned long startMillis;
@@ -93,11 +93,13 @@ void setup() {
   strcat(mqttRelayTopic, WiFi.macAddress().c_str());
   strcat(mqttServerTopic, WiFi.macAddress().c_str());
   strcat(mqttPowerLimitTopic, WiFi.macAddress().c_str());
+  strcat(mqttAnomalyStatusTopic, WiFi.macAddress().c_str());
 
   // Berlangganan topic
   client.subscribe(mqttRelayTopic);
   client.subscribe(mqttServerTopic);
   client.subscribe(mqttPowerLimitTopic);
+  client.subscribe(mqttAnomalyStatusTopic);
 }
 
 void loop() {
@@ -108,7 +110,7 @@ void loop() {
   if (currentMillis - startMillis >= 5000) {
     /* apabila mqtt tidak terhubung */
     if (!client.connected()) {
-      mqttConfig();
+      mqttReconnect();
     }
 
     /* apabila beban daya tidak melebihi batas */
@@ -124,17 +126,16 @@ void loop() {
       lcd.setCursor(0, 1);
       lcd.print("ERROR");
       Serial.println(overload);
-    } 
+    }
     /* apabila beban melebihi batas yang diperbolehkan */
     else if ((power > powerLimit) && (!isnan(power))) {
       overloadAlert();
-    } 
+    }
     /* apabila kondisi normal */
     else {
       pzemLcdPrint();
-      deviceStatus();
     }
-
+    deviceStatus();
     startMillis = currentMillis;
   }
 }
@@ -157,17 +158,6 @@ void overloadAlert() {
   relay1_on = false;
   relay2_on = false;
   relayStatus();
-
-  // JSON object
-  StaticJsonDocument<64> doc;
-  doc["status"] = "overload";
-
-  // Serialize JSON to a string
-  char buffer[64];
-  serializeJson(doc, buffer);
-
-  // Publish the serialized JSON string
-  client.publish(mqttPowerLimitTopic, buffer, false);
 }
 
 /* konfigurasi wifi dan koneksi pertama kali */
@@ -199,6 +189,7 @@ void mqttConfig() {
   //Configure MQTT
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
+  if (WiFi.status() != WL_CONNECTED) wifiConfig();
   while (!client.connected()) {
     String client_id = "esp32-client-";
     client_id += String(WiFi.macAddress());
@@ -231,6 +222,7 @@ void mqttConfig() {
 
 /* menghubungkan kembali device kepada MQTT broker apabila jaringan terputus */
 boolean mqttReconnect() {
+  if (WiFi.status() != WL_CONNECTED) wifiConfig();
   String client_id = "esp32-client-";
   client_id += String(WiFi.macAddress());
   if (client.connect(client_id.c_str(), mqtt_username, mqtt_password)) {
@@ -242,16 +234,36 @@ boolean mqttReconnect() {
 /* memberi informasi status device */
 void deviceStatus() {
   /* heartbeat status controller */
-  char payload[10] = "active";
+  char payload[20];
+  if (!isnan(power)) {
+    strcpy(payload, "active");
+  } else {
+    for (int i = 0; i < 5; i++) {
+      digitalWrite(BUZZER_PIN, HIGH);
+      delay(100);
+      digitalWrite(BUZZER_PIN, LOW);
+      delay(100);
+    }
+    strcpy(payload, "sensor error");
+  }
   client.publish(mqttDeviceStatusTopic, payload, false);
 
   /* status beban daya saat ini apakah normal/overload */
   StaticJsonDocument<64> doc;
-  doc["status"] = "normal";
+  if (overload == true) {
+    doc["status"] = "overload";
+  } else {
+    doc["status"] = "normal";
+  }
   // Serialize JSON to a string
   char buffer[32];
   serializeJson(doc, buffer);
 
+  client.publish(mqttPowerLimitTopic, buffer, false);
+
+  StaticJsonDocument<64> docPL;
+  docPL["current_power_limit"] = powerLimit;
+  serializeJson(docPL, buffer);
   client.publish(mqttPowerLimitTopic, buffer, false);
 }
 
@@ -308,7 +320,6 @@ void pzemFunction() {
   if (isnan(pf)) {
     Serial.println("Error reading power factor");
   }
-
   if (!isnan(voltage) && !isnan(power) && !isnan(current) && !isnan(energy) && !isnan(frequency) && !isnan(pf)) {
     publishData(&voltage, &current, &energy, &frequency, &pf);
   }
@@ -429,6 +440,16 @@ void callback(char *topic, byte *payload, unsigned int length) {
           overload = false;
 
           Serial.println("reset");
+        }
+      }
+    } else if (strcmp(topic, mqttAnomalyStatusTopic) == 0) {
+      if ((strcmp(doc["device_id"], WiFi.macAddress().c_str()) == 0) && (strcmp(doc["status"], "anomaly") == 0)) {
+        Serial.println("anomaly detected");
+        for (int i = 0; i < 2; i++) {
+          digitalWrite(BUZZER_PIN, HIGH);
+          delay(300);
+          digitalWrite(BUZZER_PIN, LOW);
+          delay(300);
         }
       }
     }
